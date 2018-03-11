@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.RemoteException;
 
@@ -14,15 +15,16 @@ import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.RangeNotifier;
 import org.altbeacon.beacon.Region;
-import org.altbeacon.beacon.service.RangedBeacon;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
 
 import timber.log.Timber;
 
-public abstract class Scanner implements BeaconConsumer{
+public class Scanner implements BeaconConsumer{
 
+    private static Scanner instance;
     private Context mContext;
     private MarknListener mListener;
     private BluetoothAdapter mBluetoothAdapter;
@@ -53,9 +55,18 @@ public abstract class Scanner implements BeaconConsumer{
         }
     };
 
-    public void init(Context context, MarknListener listener){
+    public static Scanner getInstance(){
+        if(instance==null){
+            instance = new Scanner();
+            if (BuildConfig.DEBUG) {
+                Timber.plant(new Timber.DebugTree());
+            }
+        }
+        return instance;
+    }
+
+    public void init(Context context){
         mContext = context;
-        mListener = listener;
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if(mBluetoothAdapter==null){
@@ -63,8 +74,17 @@ public abstract class Scanner implements BeaconConsumer{
         }else if(mBluetoothAdapter.isEnabled()){
             startDiscovery();
         }else{
-            mListener.notifyBluetoothActivationRequired();
+            if(mListener!=null)
+                mListener.notifyBluetoothActivationRequired();
         }
+    }
+
+    public void subscribeListener(MarknListener listener){
+        mListener = listener;
+    }
+
+    public void deleteListeners(){
+        mListener = null;
     }
 
     private void startDiscovery() {
@@ -109,7 +129,8 @@ public abstract class Scanner implements BeaconConsumer{
             public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
                 if (beacons.size() > 0) {
                     Timber.i("The first beacon I see is about "+beacons.iterator().next().getDistance()+" meters away.");
-                    mListener.onBeaconsDetected(beacons);
+                    if(mListener!=null)
+                        mListener.onBeaconsDetected(new ArrayList<Beacon>(beacons));
                 }
             }
         });
@@ -117,5 +138,20 @@ public abstract class Scanner implements BeaconConsumer{
         try {
             mBeaconManager.startRangingBeaconsInRegion(MARKN_REGION);
         } catch (RemoteException e) {    }
+    }
+
+    @Override
+    public Context getApplicationContext() {
+        return mContext;
+    }
+
+    @Override
+    public void unbindService(ServiceConnection serviceConnection) {
+        mContext.unbindService(serviceConnection);
+    }
+
+    @Override
+    public boolean bindService(Intent intent, ServiceConnection serviceConnection, int i) {
+        return mContext.bindService(intent, serviceConnection, i);
     }
 }

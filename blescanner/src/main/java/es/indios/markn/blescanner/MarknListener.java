@@ -2,7 +2,7 @@ package es.indios.markn.blescanner;
 
 import org.altbeacon.beacon.Beacon;
 
-import java.util.Collection;
+import java.util.ArrayList;
 
 /**
  * Created by guille on 10/03/18.
@@ -13,5 +13,5 @@ public interface MarknListener {
 
     void notifyBluetoothActivationRequired();
 
-    void onBeaconsDetected(Collection<Beacon> beacons);
+    void onBeaconsDetected(ArrayList<Beacon> beacons);
 }
