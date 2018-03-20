@@ -10,7 +10,6 @@ import java.util.ArrayList;
 
 public interface MarknListener {
 
-
     void notifyBluetoothActivationRequired();
 
     void onBeaconsDetected(ArrayList<Beacon> beacons);

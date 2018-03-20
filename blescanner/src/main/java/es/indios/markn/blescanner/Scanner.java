@@ -18,17 +18,22 @@ import org.altbeacon.beacon.Region;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Objects;
 
+import es.indios.markn.blescanner.models.Topology.Indication;
+import es.indios.markn.blescanner.models.Topology.Route;
 import timber.log.Timber;
 
 public class Scanner implements BeaconConsumer{
 
     private static Scanner instance;
     private Context mContext;
-    private MarknListener mListener;
+    private ArrayList<MarknListener> mListeners = new ArrayList<>();
     private BluetoothAdapter mBluetoothAdapter;
     private BeaconManager mBeaconManager;
+    private PathGuide mPathGuide;
 
     private static final Region MARKN_REGION = new Region("com.indios.markn.ble-scanner", null, null, null);
 
@@ -74,17 +79,34 @@ public class Scanner implements BeaconConsumer{
         }else if(mBluetoothAdapter.isEnabled()){
             startDiscovery();
         }else{
-            if(mListener!=null)
-                mListener.notifyBluetoothActivationRequired();
+            if(!mListeners.isEmpty())
+                for (MarknListener listener : mListeners) {
+                    listener.notifyBluetoothActivationRequired();
+                }
         }
     }
 
     public void subscribeListener(MarknListener listener){
-        mListener = listener;
+        if(!mListeners.contains(listener))
+            mListeners.add(listener);
+    }
+
+    public void deleteListener(MarknListener listener){
+        if(mListeners.contains(listener))
+            mListeners.remove(listener);
     }
 
     public void deleteListeners(){
-        mListener = null;
+        mListeners = new ArrayList<>();
+    }
+
+    public void setTopology(ArrayList<Route> topology, ArrayList<Indication> indications){
+        mPathGuide = new PathGuide(topology, indications);
+    }
+
+    public void setDestination(String destinationId){
+        if(mPathGuide!=null)
+            mPathGuide.setDestination(destinationId);
     }
 
     private void startDiscovery() {
@@ -128,9 +150,19 @@ public class Scanner implements BeaconConsumer{
             @Override
             public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
                 if (beacons.size() > 0) {
-                    Timber.i("The first beacon I see is about "+beacons.iterator().next().getDistance()+" meters away.");
-                    if(mListener!=null)
-                        mListener.onBeaconsDetected(new ArrayList<Beacon>(beacons));
+                    ArrayList<Beacon> beaconList = new ArrayList<>(beacons);
+                    Collections.sort(beaconList,new Comparator<Beacon>() {
+                        @Override
+                        public int compare(Beacon b1, Beacon b2) {
+                            return Double.compare(b1.getDistance(), b2.getDistance());
+                        }
+                    });
+                    Timber.i("The first beacon I see is about "+beaconList.get(0).getDistance()+" meters away.");
+                    if(mPathGuide!=null)
+                        mPathGuide.onBeaconsDetected(beaconList);
+                    if(!mListeners.isEmpty())
+                        for(MarknListener listener : mListeners)
+                            listener.onBeaconsDetected(beaconList);
                 }
             }
         });
