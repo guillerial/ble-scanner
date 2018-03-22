@@ -26,7 +26,7 @@ import es.indios.markn.blescanner.models.Topology.Indication;
 import es.indios.markn.blescanner.models.Topology.Route;
 import timber.log.Timber;
 
-public class Scanner implements BeaconConsumer{
+public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
 
     private static Scanner instance;
     private Context mContext;
@@ -101,7 +101,7 @@ public class Scanner implements BeaconConsumer{
     }
 
     public void setTopology(ArrayList<Route> topology, ArrayList<Indication> indications){
-        mPathGuide = new PathGuide(topology, indications);
+        mPathGuide = new PathGuide(topology, indications, this);
     }
 
     public void setDestination(String destinationId){
@@ -185,5 +185,12 @@ public class Scanner implements BeaconConsumer{
     @Override
     public boolean bindService(Intent intent, ServiceConnection serviceConnection, int i) {
         return mContext.bindService(intent, serviceConnection, i);
+    }
+
+    @Override
+    public void onNewIndication(Indication indication) {
+        if(!mListeners.isEmpty())
+            for (MarknListener listener : mListeners)
+                listener.onNewIndication(indication);
     }
 }

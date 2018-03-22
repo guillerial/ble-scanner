@@ -8,4 +8,12 @@ public class Route {
 
     private String route;
     private String next;
+
+    public String getRoute() {
+        return route;
+    }
+
+    public String getNext() {
+        return next;
+    }
 }

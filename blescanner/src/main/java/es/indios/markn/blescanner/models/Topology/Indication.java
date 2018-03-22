@@ -9,4 +9,8 @@ public class Indication {
     private String route;
     private String indication;
     private String image_url;
+
+    public String getRoute() {
+        return route;
+    }
 }
