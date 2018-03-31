@@ -9,6 +9,11 @@ public class Route {
     private String route;
     private String next;
 
+    public Route(String route, String next) {
+        this.route = route;
+        this.next = next;
+    }
+
     public String getRoute() {
         return route;
     }
