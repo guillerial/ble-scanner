@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.RemoteException;
@@ -34,8 +35,10 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
     private BluetoothAdapter mBluetoothAdapter;
     private BeaconManager mBeaconManager;
     private PathGuide mPathGuide;
+    private Comparator<Beacon> mComparator;
 
     private static final Region MARKN_REGION = new Region("com.indios.markn.ble-scanner", null, null, null);
+    private static final String MARKN_BEACON = "2f234454-cf6d-4a0f-adf2-f4911ba9ffa6";
 
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -73,6 +76,15 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
     public void init(Context context){
         mContext = context;
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        mContext.registerReceiver(mBroadcastReceiver, filter);
+        mComparator = new Comparator<Beacon>() {
+            @Override
+            public int compare(Beacon b1, Beacon b2) {
+                return Double.compare(b1.getDistance(), b2.getDistance());
+            }
+        };
 
         if(mBluetoothAdapter==null){
             Timber.i("We cant use Bluetooth.");
@@ -109,7 +121,7 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
             mPathGuide.setDestination(destinationId);
     }
 
-    private void startDiscovery() {
+    public void startDiscovery() {
         if (mContext == null) {
             Timber.i("Can't start discovery without a context");
             return;
@@ -118,7 +130,6 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
             Timber.i("Bluetooth Low Energy not available");
             return;
         }
-
         if (mBeaconManager == null) {
             Timber.i("Creating BeaconManager");
             BeaconManager.getInstanceForApplication(mContext).unbind(this);
@@ -126,13 +137,22 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
             BeaconParser iBeaconParser = new BeaconParser().setBeaconLayout("m:0-3=4c000215,i:4-19,i:20-21,i:22-23,p:24-24");
             mBeaconManager.getBeaconParsers().clear();
             mBeaconManager.getBeaconParsers().add(iBeaconParser);
+            try {
+                mBeaconManager.setForegroundScanPeriod(1000);
+                mBeaconManager.setForegroundBetweenScanPeriod(1000);
+                mBeaconManager.updateScanPeriods();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+            mBeaconManager.setBackgroundMode(false);
+
         }
 
         mBeaconManager.bind(this);
         Timber.i("Discovery started");
     }
 
-    private void stopDiscovery() {
+    public void stopDiscovery() {
         if(mBeaconManager!=null){
             try {
                 mBeaconManager.stopRangingBeaconsInRegion(MARKN_REGION);
@@ -144,6 +164,15 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
 
     }
 
+    public void enableBluetooth(){
+        BluetoothAdapter.getDefaultAdapter().enable();
+    }
+
+    public void disable(){
+        stopDiscovery();
+        BluetoothAdapter.getDefaultAdapter().disable();
+    }
+
     @Override
     public void onBeaconServiceConnect() {
         mBeaconManager.addRangeNotifier(new RangeNotifier() {
@@ -151,18 +180,21 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
             public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
                 if (beacons.size() > 0) {
                     ArrayList<Beacon> beaconList = new ArrayList<>(beacons);
-                    Collections.sort(beaconList,new Comparator<Beacon>() {
-                        @Override
-                        public int compare(Beacon b1, Beacon b2) {
-                            return Double.compare(b1.getDistance(), b2.getDistance());
+                    ArrayList<Beacon> marknBeaconList = new ArrayList<>();
+                    Collections.sort(beaconList, mComparator);
+                    for(Beacon beacon : beaconList){
+                        if(beacon.getId1().toString().equalsIgnoreCase(MARKN_BEACON) && beacon.getDistance()<15){
+                            marknBeaconList.add(beacon);
                         }
-                    });
-                    Timber.i("The first beacon I see is about "+beaconList.get(0).getDistance()+" meters away.");
-                    if(mPathGuide!=null)
-                        mPathGuide.onBeaconsDetected(beaconList);
-                    if(!mListeners.isEmpty())
-                        for(MarknListener listener : mListeners)
-                            listener.onBeaconsDetected(beaconList);
+                    }
+                    if(marknBeaconList.size()>0) {
+                        Timber.i("The first beacon I see is: " + marknBeaconList.get(0).getId3() + " about " + marknBeaconList.get(0).getDistance() + " meters away.");
+                        if (mPathGuide != null)
+                            mPathGuide.onBeaconsDetected(marknBeaconList);
+                        if (!mListeners.isEmpty())
+                            for (MarknListener listener : mListeners)
+                                listener.onBeaconsDetected(marknBeaconList);
+                    }
                 }
             }
         });
