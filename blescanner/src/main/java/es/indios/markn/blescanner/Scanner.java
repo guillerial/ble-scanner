@@ -9,13 +9,16 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.RemoteException;
+import android.util.Log;
 
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconConsumer;
 import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
+import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.RangeNotifier;
 import org.altbeacon.beacon.Region;
+import org.altbeacon.beacon.service.RangedBeacon;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -137,9 +140,12 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
             BeaconParser iBeaconParser = new BeaconParser().setBeaconLayout("m:0-3=4c000215,i:4-19,i:20-21,i:22-23,p:24-24");
             mBeaconManager.getBeaconParsers().clear();
             mBeaconManager.getBeaconParsers().add(iBeaconParser);
+            RangedBeacon.setSampleExpirationMilliseconds(6000);
             try {
                 mBeaconManager.setForegroundScanPeriod(1000);
                 mBeaconManager.setForegroundBetweenScanPeriod(1000);
+                mBeaconManager.setBackgroundScanPeriod(1000);
+                mBeaconManager.setBackgroundBetweenScanPeriod(1000);
                 mBeaconManager.updateScanPeriods();
             } catch (RemoteException e) {
                 e.printStackTrace();
@@ -183,7 +189,7 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
                     ArrayList<Beacon> marknBeaconList = new ArrayList<>();
                     Collections.sort(beaconList, mComparator);
                     for(Beacon beacon : beaconList){
-                        if(beacon.getId1().toString().equalsIgnoreCase(MARKN_BEACON) && beacon.getDistance()<15){
+                        if(beacon.getId1().toString().equalsIgnoreCase(MARKN_BEACON) && beacon.getDistance()<40){
                             marknBeaconList.add(beacon);
                         }
                     }
