@@ -140,7 +140,6 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
             BeaconParser iBeaconParser = new BeaconParser().setBeaconLayout("m:0-3=4c000215,i:4-19,i:20-21,i:22-23,p:24-24");
             mBeaconManager.getBeaconParsers().clear();
             mBeaconManager.getBeaconParsers().add(iBeaconParser);
-            RangedBeacon.setSampleExpirationMilliseconds(6000);
             try {
                 mBeaconManager.setForegroundScanPeriod(1000);
                 mBeaconManager.setForegroundBetweenScanPeriod(1000);
@@ -189,7 +188,7 @@ public class Scanner implements BeaconConsumer, PathGuide.PathGuideListener{
                     ArrayList<Beacon> marknBeaconList = new ArrayList<>();
                     Collections.sort(beaconList, mComparator);
                     for(Beacon beacon : beaconList){
-                        if(beacon.getId1().toString().equalsIgnoreCase(MARKN_BEACON) && beacon.getDistance()<40){
+                        if(beacon.getId1().toString().equalsIgnoreCase(MARKN_BEACON)){
                             marknBeaconList.add(beacon);
                         }
                     }
